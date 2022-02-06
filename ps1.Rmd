@@ -1,0 +1,184 @@
+---
+title: "Problem set 3"
+author: "Yanping Zhu"
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+library(MatchIt)
+library(plyr)
+library(dplyr)
+library(tidyverse)
+library(lubridate)
+library(zoo)
+library(broom)
+library(timereg)
+library(plm)
+library(lfe)
+library(aTSA)
+
+setwd('/Users/yanpingzhu/Desktop/Courses/BUSI 525 Topics in Financial Markets Research/Assignments/Problem set 1')
+```
+#Part 1—No Skilled Funds:
+
+##Q1
+```{r}
+set.seed(2800)
+
+N <- 1000
+T <- 120
+
+#generate market excess return and the error term
+rmkt <- rnorm(n = N * T, mean = 0.05/12, sd = 0.2/sqrt(12))
+eps  <- rnorm(n = N * T, mean = 0, sd = 0.3/sqrt(12))
+
+#set id for each fund
+nid = rep(1:N, each = T)
+
+
+
+df_1 <- data.frame(nid = nid, rmkt, eps)
+
+#assuming beta = 1 for all funds and alpha = 0 for all funds, generate the dependent variable 
+
+df_1 <- df_1 %>% 
+  mutate(r= 0 + rmkt + eps)
+head(df_1)
+
+#estimation for each fund
+fit_per_fund <- dlply(df_1, "nid", function(df) lm(r ~ rmkt, data = df))
+
+#extract the alphas and t-statistics
+fitted <- ldply(fit_per_fund,tidy) %>% 
+  filter(term == '(Intercept)')
+
+head(fitted)
+
+#number of funds that are skilled at 5\%
+skilled <- fitted %>% 
+  filter(p.value <= 0.05)
+length(skilled$nid)
+
+```
+
+##Q2 
+
+```{r}
+hist(fitted$statistic, breaks=20, col="blue")
+dtstat <- density(fitted$statistic)
+plot(dtstat, main="Kernel Density of t-statistics")
+polygon(dtstat, col="blue", border="black")
+
+
+hist(fitted$p.value, breaks=20, col="blue")
+dpval <- density(fitted$p.value)
+plot(dpval, main="Kernel Density of p-values")
+polygon(dpval, col="blue", border="black")
+
+
+```
+
+##Q3 
+It looks like a uniform distribution. 
+
+
+
+#Part 2—Some Skilled Funds
+
+For this part, I write a function with the parameter $\lambda$. The function first returns the plots of the cross-sectional distribution of estimated $\alpha$, t-stats and the p-values for each $\lambda$. 
+
+Then it returns a vector of four values, with the first value being percentage of true positive, second being false positive, third being false negative, and the fourth being true negative. 
+
+As we can see from the histograms of the fitted values, when lambda increases, the probability mass for small p-values, i.e., $p < 0.05$ increases. 
+
+Here is the function.
+
+```{r}
+
+func <- function(lambda){
+
+  #generate alpha for each fund
+  alpha <- c(rep(0.025/12, lambda*N), rep(0, (1-lambda)*N))
+  
+  #since alpha does not vary with time
+  alpha <- rep(alpha, each = T)
+
+  #given that beta = 1 for all fund, we can generate the dependent variable 
+  df_2 <- data.frame(nid = nid, alpha, rmkt, eps) %>% 
+  mutate(r= alpha + rmkt + eps)
+  
+  #estimation for each fund
+  fit_per_fund_2 <- dlply(df_2, "nid", function(df) lm(r ~ rmkt, data = df))
+
+  fitted_2 <- ldply(fit_per_fund_2,tidy) %>% 
+    filter(term == '(Intercept)')
+
+  #make the plots for Q1 
+  hist(fitted_2$estimate, breaks=15, col="blue")
+  dest_2 <- density(fitted_2$estimate)
+  plot(dest_2, main="Kernel Density of estimates")
+  polygon(dest_2, col="blue", border="black")
+
+  hist(fitted_2$statistic, breaks=15, col="blue")
+  dtstat_2 <- density(fitted_2$statistic)
+  plot(dtstat_2, main="Kernel Density of t-statistics")
+  polygon(dtstat_2, col="blue", border="black")
+
+
+  hist(fitted_2$p.value, breaks=25, col="blue")
+  dpval_2 <- density(fitted_2$p.value)
+  plot(dpval_2, main="Kernel Density of p-values")
+  polygon(dpval_2, col="blue", border="black")
+  
+
+  #calculate the percentage of funds in four classifications 
+  #combine data with true values of alphas and the estimated alphas
+  data <- df_2 %>% 
+    select(nid, alpha) %>% 
+    unique() %>% 
+    left_join(fitted_2 %>% select(nid, estimate, p.value), by = 'nid')
+  
+  #true positive
+  tp <- data %>% 
+    filter(p.value <= 0.05, alpha >0)
+  Truepositive <- length(tp$nid)/1000
+
+  #false positive
+  fp <- data %>% 
+    filter(p.value <= 0.05, alpha ==0)
+  Falsepositive <- length(fp$nid)/1000
+
+  #false negative
+  fn <- data %>% 
+    filter(p.value > 0.05, alpha >0)
+  Falsenegative <- length(fn$nid)/1000
+
+  #true negative
+  tn <- data %>% 
+    filter(p.value > 0.05, alpha ==0)
+  Truenegative <- length(tn$nid)/1000
+
+  
+  percentages <- c(Truepositive, Falsepositive, Falsenegative, Truenegative)
+
+  percentages
+
+
+}
+```
+
+
+##Q1 and Q2
+
+Now we look at the output of the function with $\lambda = 0.1, 0.25, 0.5,0.75$. 
+```{r}
+func(0.1)
+func(0.25)
+func(0.5)
+func(0.75)
+```
+
+
