@@ -6,7 +6,7 @@ output:
   pdf_document: default
   word_document: default
 ---
-
+Github link: 
 ```{r setup, include=FALSE}
 library(MatchIt)
 library(plyr)
@@ -33,7 +33,7 @@ T <- 120
 
 #generate market excess return and the error term
 rmkt <- rnorm(n = N * T, mean = 0.05/12, sd = 0.2/sqrt(12))
-eps  <- rnorm(n = N * T, mean = 0, sd = 0.3/sqrt(12))
+eps  <- rnorm(n = N * T, mean = 0, sd = 0.1/sqrt(12))
 
 #set id for each fund
 nid = rep(1:N, each = T)
@@ -82,11 +82,12 @@ polygon(dpval, col="blue", border="black")
 ```
 
 ##Q3 
+
 It looks like a uniform distribution. 
 
 
 
-#Part 2—Some Skilled Funds
+#Part 2—Some Skilled Funds:
 
 For this part, I write a function with the parameter $\lambda$. The function first returns the plots of the cross-sectional distribution of estimated $\alpha$, t-stats and the p-values for each $\lambda$. 
 
@@ -101,7 +102,7 @@ Here is the function.
 func <- function(lambda){
 
   #generate alpha for each fund
-  alpha <- c(rep(0.025/12, lambda*N), rep(0, (1-lambda)*N))
+  alpha <- c(rep(0.05/12, lambda*N), rep(0, (1-lambda)*N))
   
   #since alpha does not vary with time
   alpha <- rep(alpha, each = T)
